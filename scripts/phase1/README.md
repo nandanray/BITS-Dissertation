@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="../../docs/assets/icons/setup.png" alt="Setup" width="150"/>
   <h1>Phase 1: Development Environment Setup</h1>
 
   [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
