@@ -22,9 +22,6 @@
 A comprehensive implementation of a WebAssembly-powered serverless platform for edge computing using Kubernetes.
 
 ## 🏗️ Architecture
-<div align="center">
-  <img src="docs/assets/architecture.svg" alt="Architecture Diagram" width="800"/>
-</div>
 
 ```
 ├── Edge Computing Platform
