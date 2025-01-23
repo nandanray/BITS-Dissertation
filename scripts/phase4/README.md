@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="../../docs/assets/icons/edge.png" alt="Edge" width="150"/>
   <h1>Phase 4: Edge Deployment System</h1>
 
   [![P2P](https://img.shields.io/badge/p2p-yellow.svg?style=flat&logo=p2p&logoColor=white)](https://en.wikipedia.org/wiki/Peer-to-peer)
