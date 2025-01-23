@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="../../docs/assets/icons/kubernetes.png" alt="Kubernetes" width="150"/>
   <h1>Phase 3: Kubernetes Integration</h1>
 
   [![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=flat&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
