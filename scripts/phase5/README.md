@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="../../docs/assets/icons/security.png" alt="Security" width="150"/>
   <h1>Phase 5: Optimization & Security</h1>
 
   [![Security](https://img.shields.io/badge/security-blue.svg?style=flat&logo=security&logoColor=white)](https://kubernetes.io/docs/concepts/security/)
