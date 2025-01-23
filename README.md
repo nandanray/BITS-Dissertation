@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="docs/assets/wasm-edge-logo.png" alt="WebAssembly Edge Platform" width="300"/>
   <h1>WebAssembly Edge Computing Platform</h1>
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -175,9 +174,6 @@ Optimized for edge computing environments
 
 ## 📊 Performance Metrics
 
-<div align="center">
-  <img src="docs/assets/performance-graph.png" alt="Performance Metrics" width="600"/>
-</div>
 
 | Metric | Target |
 |--------|---------|
@@ -236,7 +232,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 <div align="center">
-  Made with ❤️ by the WebAssembly Edge Platform Team
+  Made with ❤️ by the Nandan Ray
 </div>
 
 [kubernetes-shield]: https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=for-the-badge&logo=kubernetes&logoColor=white
