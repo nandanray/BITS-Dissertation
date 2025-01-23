@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="../../docs/assets/icons/testing.png" alt="Testing" width="150"/>
   <h1>Phase 6: Testing & Evaluation</h1>
 
   [![Testing](https://img.shields.io/badge/testing-red.svg?style=flat&logo=testing-library&logoColor=white)](https://k6.io/)
