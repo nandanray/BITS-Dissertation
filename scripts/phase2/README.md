@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="../../docs/assets/icons/runtime.png" alt="Runtime" width="150"/>
   <h1>Phase 2: Core Runtime Development</h1>
 
   [![WebAssembly](https://img.shields.io/badge/webassembly-654FF0.svg?style=flat&logo=webassembly&logoColor=white)](https://webassembly.org/)
