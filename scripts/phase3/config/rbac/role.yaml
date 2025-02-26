@@ -1,0 +1,8 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: wasm-operator-role
+rules:
+- apiGroups: ["operators.bits-dissertation.io"]
+  resources: ["wasmfunctions"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

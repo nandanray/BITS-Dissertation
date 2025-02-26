@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wasm-function-operator
+  namespace: wasm-operators
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wasm-function-operator
+  template:
+    metadata:
+      labels:
+        app: wasm-function-operator
+    spec:
+      serviceAccountName: wasm-operator
+      containers:
+      - name: operator
+        image: busybox
+        command: ["sleep", "infinity"]

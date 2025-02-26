@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wasm-runtime-controller
+  namespace: wasm-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wasm-runtime-controller
+  template:
+    metadata:
+      labels:
+        app: wasm-runtime-controller
+    spec:
+      containers:
+      - name: controller
+        image: busybox
+        command: ["sleep", "infinity"]
