@@ -14,74 +14,150 @@ echo "=== Setting up Kubernetes Cluster for Wasm Edge Computing ==="
 
 # Cluster configuration
 CLUSTER_NAME="wasm-edge-cluster"
-AGENT_COUNT=3
-MEMORY="4GB"
-PORTS="8080:80@loadbalancer"
+AGENT_COUNT=1
+HTTP_PORT=80
+ALT_HTTP_PORT=8081
+LB_PORT_80="80:${HTTP_PORT}@loadbalancer"
+LB_PORT_8080="8080:8080@loadbalancer"
+
+# Check if port 80 is in use
+if netstat -tulnp | grep -q ":${HTTP_PORT}"; then
+    echo -e "${RED}Port ${HTTP_PORT} is already in use. Please stop the service using it or use an alternative port.${NC}"
+    echo -e "Trying alternative port ${ALT_HTTP_PORT}..."
+    HTTP_PORT=$ALT_HTTP_PORT
+    LB_PORT_80="80:${HTTP_PORT}@loadbalancer"
+fi
 
 echo "Creating k3d cluster with following configuration:"
 echo "- Name: $CLUSTER_NAME"
 echo "- Agents: $AGENT_COUNT"
-echo "- Memory: $MEMORY"
-echo "- Ports: $PORTS"
+echo "- Ports: ${HTTP_PORT} and 8080 mapped to loadbalancer"
 
-# Check if cluster already exists
-if k3d cluster list | grep -q "$CLUSTER_NAME"; then
-    log_error "Cluster $CLUSTER_NAME already exists. Please delete it first with: k3d cluster delete $CLUSTER_NAME"
-fi
-
-# Create cluster with resource limits
+# Create minimal cluster with resource limits
 k3d cluster create "$CLUSTER_NAME" \
     --agents "$AGENT_COUNT" \
-    --memory "$MEMORY" \
-    --port "$PORTS" \
-    --wait || log_error "Failed to create cluster"
+    -p "$LB_PORT_80" \
+    -p "$LB_PORT_8080" \
+    --k3s-arg "--disable=traefik,servicelb,metrics-server@server:*" \
+    --image rancher/k3s:v1.26.7-k3s1 \
+    --timeout 120s \
+    --kubeconfig-update-default \
+    --servers 1 \
+    --servers-memory "1024m" \
+    --agents-memory "1024m" || log_error "Failed to create cluster"
+
+# Wait for cluster access (simplified)
+echo "Waiting for cluster access..."
+for i in $(seq 1 30); do
+    if kubectl cluster-info >/dev/null 2>&1; then
+        break
+    fi
+    echo "Waiting for cluster... attempt $i/30"
+    sleep 2
+done
+
+if ! kubectl cluster-info >/dev/null 2>&1; then
+    log_error "Failed to access cluster after waiting"
+fi
 
 log_success "Kubernetes cluster created successfully"
 
-echo "=== Setting up Monitoring Stack ==="
+# Simplified node readiness check
+echo "Waiting for nodes..."
+kubectl wait --for=condition=ready nodes --all --timeout=60s || log_error "Nodes failed to become ready"
 
-# Add Helm repositories
-echo "Adding Helm repositories..."
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || log_error "Failed to add Prometheus repo"
-helm repo add grafana https://grafana.github.io/helm-charts || log_error "Failed to add Grafana repo"
-helm repo update || log_error "Failed to update Helm repos"
+log_success "Nodes are ready"
 
-# Create monitoring namespace
-kubectl create namespace monitoring || log_error "Failed to create monitoring namespace"
+# Basic cluster verification
+kubectl get nodes || log_error "Cannot get cluster nodes"
 
-# Install Prometheus with custom values
-echo "Installing Prometheus..."
-helm install prometheus prometheus-community/prometheus \
-    --namespace monitoring \
-    --set server.persistentVolume.size=10Gi \
-    --set alertmanager.persistentVolume.size=5Gi || log_error "Failed to install Prometheus"
+# Check core components
+echo "Checking core components..."
+if ! kubectl wait --for=condition=ready -n kube-system pod -l k8s-app=kube-dns --timeout=60s; then
+    log_error "CoreDNS is not ready"
+fi
 
-# Install Grafana with custom values
-echo "Installing Grafana..."
-helm install grafana grafana/grafana \
-    --namespace monitoring \
-    --set persistence.enabled=true \
-    --set persistence.size=5Gi \
-    --set adminPassword=admin123 || log_error "Failed to install Grafana"
+log_success "Cluster core components are ready"
 
-# Wait for pods to be ready
-echo "Waiting for monitoring stack to be ready..."
-kubectl wait --for=condition=ready pod -l app=prometheus --timeout=300s -n monitoring
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=grafana --timeout=300s -n monitoring
+# Verify k3s server is operational
+echo "Verifying k3s server status..."
+if ! timeout 60 kubectl get --raw "/readyz" >/dev/null 2>&1; then
+    log_error "k3s server is not healthy"
+fi
 
-# Get Grafana admin password
-GRAFANA_PASSWORD=$(kubectl get secret --namespace monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode)
+log_success "k3s server is operational"
 
-log_success "Monitoring stack installed successfully!"
+# Verify DNS resolution is working
+echo "Verifying DNS resolution..."
+timeout=60
+elapsed=0
+while true; do
+    if [ $elapsed -gt $timeout ]; then
+        log_error "DNS resolution check failed"
+    fi
+    
+    if kubectl run -it --rm --restart=Never dns-test --image=busybox:1.28 \
+        --command -- nslookup kubernetes.default >/dev/null 2>&1; then
+        echo "DNS resolution working"
+        break
+    fi
+    
+    sleep 5
+    elapsed=$((elapsed + 5))
+    echo "Waiting for DNS to be ready... ($elapsed/$timeout seconds)"
+done
+
+echo "=== Setting up Metrics Server ==="
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml || log_error "Failed to install Metrics Server"
+
+# Wait for Metrics Server to be ready
+echo "Waiting for Metrics Server to be ready..."
+kubectl wait --for=condition=ready pod -l k8s-app=metrics-server -n kube-system --timeout=300s || log_error "Metrics Server failed to become ready"
+
+echo "=== Setting up Monitoring Dashboard ==="
+
+# Ensure python3-venv is installed
+if ! dpkg -l | grep -q python3-venv; then
+    echo "Installing python3-venv..."
+    sudo apt-get update
+    sudo apt-get install -y python3-venv || log_error "Failed to install python3-venv"
+fi
+
+# Create a virtual environment for the Streamlit dashboard
+python3 -m venv /home/nandan/CodeIT/Personal/BITS-Dissertation/scripts/phase1/setup/venv || log_error "Failed to create virtual environment"
+
+# Activate the virtual environment and install Streamlit and Kubernetes Python client
+source /home/nandan/CodeIT/Personal/BITS-Dissertation/scripts/phase1/setup/venv/bin/activate
+pip install streamlit kubernetes pandas || log_error "Failed to install Streamlit and Kubernetes Python client"
+deactivate
+
+# Create a systemd service for the Streamlit dashboard
+cat <<EOF | sudo tee /etc/systemd/system/streamlit-dashboard.service
+[Unit]
+Description=Streamlit Dashboard
+After=network.target
+
+[Service]
+User=$USER
+WorkingDirectory=/home/nandan/CodeIT/Personal/BITS-Dissertation/scripts/phase1/setup
+ExecStart=/home/nandan/CodeIT/Personal/BITS-Dissertation/scripts/phase1/setup/venv/bin/streamlit run /home/nandan/CodeIT/Personal/BITS-Dissertation/scripts/phase1/setup/monitoring_dashboard.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd and start the Streamlit service
+sudo systemctl daemon-reload
+sudo systemctl start streamlit-dashboard.service
+sudo systemctl enable streamlit-dashboard.service
+
+log_success "Monitoring dashboard set up successfully!"
 echo "====================================="
-echo "Grafana URL: http://localhost:80"
-echo "Grafana Admin User: admin"
-echo "Grafana Admin Password: $GRAFANA_PASSWORD"
+echo "Streamlit Dashboard URL: http://localhost:8501"
 echo "====================================="
 
 # Verify installation
-echo "Verifying installation..."
-kubectl get pods -n monitoring
-kubectl get svc -n monitoring
+sudo systemctl status streamlit-dashboard.service
 
 log_success "Kubernetes cluster setup completed successfully!"
