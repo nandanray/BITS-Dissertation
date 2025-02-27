@@ -1,1 +1,2 @@
 k3d cluster delete wasm-edge-cluster
+sudo systemctl stop streamlit-dashboard.service
