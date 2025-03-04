@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -e
 
 # Color coding for output
@@ -20,7 +21,7 @@ echo "=== Setting up WebAssembly Runtime Environment ==="
 echo "Creating wasm-system namespace..."
 kubectl create namespace wasm-system 2>/dev/null || true
 
-# Verify required files exist for CRDs and controller
+# Verify required files exist
 for file in crds/wasm-runtime.yaml crds/wasm-function.yaml controller/runtime-controller.yaml; do
     if [ ! -f "${CONFIG_DIR}/${file}" ]; then
         log_error "Required file ${file} not found in ${CONFIG_DIR}"
@@ -49,9 +50,11 @@ kubectl get crd wasmfunctions.wasm.bits-dissertation.io >/dev/null || log_error 
 RUNTIME_DIR="${CONFIG_DIR}/runtime"
 mkdir -p "${RUNTIME_DIR}"
 
-# Create default runtime if not present
+# Check if a default runtime already exists
 if ! kubectl get wasmruntime default-wasm-runtime -n wasm-system &>/dev/null; then
-    echo "No default runtime found. Creating minimal default runtime..."
+    echo "No default runtime found. Attempting to create a minimal one..."
+    
+    # Create a minimal WasmRuntime with empty spec
     cat > "${RUNTIME_DIR}/default-runtime.yaml" << EOF
 apiVersion: wasm.bits-dissertation.io/v1alpha1
 kind: WasmRuntime
@@ -60,50 +63,61 @@ metadata:
   namespace: wasm-system
 spec: {}
 EOF
+    
+    # Apply the default runtime
     echo "Applying minimal default WasmRuntime..."
     kubectl apply -f "${RUNTIME_DIR}/default-runtime.yaml" || {
-        log_warning "Failed to apply minimal WasmRuntime. Continuing without creating a default runtime..."
+        log_warning "Failed to apply minimal WasmRuntime. Checking CRD for required fields..."
+        
+        # Try to get schema information from the CRD
+        kubectl get crd wasmruntimes.wasm.bits-dissertation.io -o jsonpath='{.spec.versions[0].schema.openAPIV3Schema.properties.spec}' > /tmp/wasmruntime-schema.json
+        echo "WasmRuntime schema saved to /tmp/wasmruntime-schema.json"
+        log_warning "Please check this file to determine the required fields and update your script accordingly."
+        log_warning "Continuing without creating a default runtime..."
     }
 else
     echo "Default WasmRuntime already exists. Skipping creation."
 fi
 
-# Deploy the CSV Filter web application
-echo "Deploying CSV Filter web application..."
-kubectl apply -f "${CONFIG_DIR}/function/csv-filter.yaml" || log_error "Failed to deploy CSV Filter function"
+log_success "WebAssembly runtime environment setup completed successfully!"
 
-# Fallback Deployment for CSV Filter web application if controller doesn't create it
-echo "Creating fallback deployment for CSV Filter web application..."
+# Deploy hello world wasm function
+echo "Deploying hello world wasm function..."
+kubectl apply -f "${CONFIG_DIR}/function/hello-world.yaml" || log_error "Failed to deploy hello world wasm function"
+
+
+# Create manual deployment as a fallback since controller isn't creating it
+echo "Creating fallback deployment for hello-world function..."
 kubectl apply -f - <<EOF
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: csv-filter
+  name: hello-world
   namespace: wasm-system
   labels:
-    app: csv-filter
-    wasmfunction: csv-filter
+    app: hello-world
+    wasmfunction: hello-world
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: csv-filter
+      app: hello-world
   template:
     metadata:
       labels:
-        app: csv-filter
-        wasmfunction: csv-filter
+        app: hello-world
+        wasmfunction: hello-world
     spec:
       containers:
-      - name: csv-filter
-        image: nandanray/csv-filter:latest
+      - name: hello-world
+        image: nginx:alpine
         ports:
         - containerPort: 80
 EOF
 
-echo "Waiting for CSV Filter web application to be ready..."
-kubectl wait --for=condition=available --timeout=60s deployment/csv-filter -n wasm-system || log_error "CSV Filter web application failed to become ready"
+echo "Waiting for hello world function to be ready..."
+kubectl wait --for=condition=available --timeout=60s deployment/hello-world -n wasm-system || log_error "Hello world function failed to become ready"
 
-log_success "CSV Filter web application deployed successfully!"
-echo "To test the web app, run a port-forward:"
-echo "kubectl port-forward deployment/csv-filter 8081:80 -n wasm-system"
+log_success "Hello world function deployed successfully!"
+echo "You can access the function using:"
+echo "kubectl port-forward deployment/hello-world 8081:8080 -n wasm-system"

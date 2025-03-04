@@ -1,0 +1,6 @@
+apiVersion: wasm.bits-dissertation.io/v1alpha1
+kind: WasmRuntime
+metadata:
+  name: default-wasm-runtime
+  namespace: wasm-system
+spec: {}

@@ -1,0 +1,11 @@
+apiVersion: wasm.bits-dissertation.io/v1alpha1
+kind: WasmFunction
+metadata:
+  name: hello-world
+  namespace: wasm-system
+  labels:
+    app: hello-world
+    wasmfunction: hello-world
+spec:
+  runtime: default-wasm-runtime
+  source: nginx:alpine

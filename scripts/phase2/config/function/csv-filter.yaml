@@ -1,0 +1,11 @@
+apiVersion: wasm.bits-dissertation.io/v1alpha1
+kind: WasmFunction
+metadata:
+  name: csv-filter
+  namespace: wasm-system
+  labels:
+    app: csv-filter
+    wasmfunction: csv-filter
+spec:
+  runtime: default-wasm-runtime
+  source: nandanray/csv-filter:latest
