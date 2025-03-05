@@ -16,9 +16,23 @@ CONFIG_DIR="$(dirname "$SCRIPT_DIR")/config"
 
 echo "=== Setting up WebAssembly Runtime Environment ==="
 
-# Create namespace for Wasm runtime if it doesn't exist
+# Improved namespace creation with explicit error handling
 echo "Creating wasm-system namespace..."
-kubectl create namespace wasm-system 2>/dev/null || true
+if ! kubectl create namespace wasm-system; then
+    # Check if namespace already exists
+    if kubectl get namespace wasm-system >/dev/null 2>&1; then
+        log_warning "Namespace 'wasm-system' already exists"
+    else
+        log_error "Failed to create namespace 'wasm-system'"
+    fi
+else
+    log_success "Namespace 'wasm-system' created successfully"
+fi
+
+# Verify namespace was created and is visible
+if ! kubectl get namespace wasm-system >/dev/null 2>&1; then
+    log_error "Cannot verify 'wasm-system' namespace after creation"
+fi
 
 # Verify required files exist for CRDs and controller
 for file in crds/wasm-runtime.yaml crds/wasm-function.yaml controller/runtime-controller.yaml; do
